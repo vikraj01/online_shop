@@ -1,92 +1,58 @@
-const express = require("express");
-const path = require("path");
-const bodyParser = require("body-parser");
-const adminRoutes = require("./routes/admin.js");
-const shopRoutes = require("./routes/shop.js");
-const rootDir = require("./util/path");
-const errorController = require("./controllers/error");
+const path = require('path');
 
-const sequelize = require("./util/database");
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 
-/* Models */
-const Product = require("./models/product");
-const User = require("./models/user");
-const Cart = require("./models/cart");
-const CartItem = require("./models/cart-items");
+const errorController = require('./controllers/error');
+const User = require('./models/user');
 
 const app = express();
 
-app.set("view engine", "ejs");
-app.set("views", "views");
+app.set('view engine', 'ejs');
+app.set('views', 'views');
+
+const adminRoutes = require('./routes/admin');
+const shopRoutes = require('./routes/shop');
+const authRoutes = require('./routes/auth');
 
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.static(path.join(rootDir, "public")));
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.use((req, res, next) => {
-  User.findByPk(1)
-    .then((user) => {
+  User.findById('62e28bce17b3ef34d6afc656')
+    .then(user => {
       req.user = user;
       next();
     })
-    .catch((err) => console.log(err));
+    .catch(err => console.log(err));
 });
 
-app.use("/admin", adminRoutes);
+app.use('/admin', adminRoutes);
 app.use(shopRoutes);
+app.use(authRoutes);
 
 app.use(errorController.get404);
 
-/* Association */
-Product.belongsTo(User, { constraints: true, onDelete: "CASCADE" });
-User.hasMany(Product);
-User.hasOne(Cart);
-Cart.belongsTo(User);
-Cart.belongsToMany(Product, { through: CartItem });
-Product.belongsToMany(Cart, { through: CartItem });
-
-sequelize
-  //.sync({force:true})
-  .sync()
-  .then((result) => {
-    return User.findByPk(1);
-    //console.log(result);
-    //app.listen(4000);
+mongoose
+  .connect(
+    'mongodb+srv://Vik_ash_raj:root@cluster0.mfral.mongodb.net/shop?retryWrites=true&w=majority'
+  )
+  .then(result => {
+    User.findOne().then(user => {
+      if (!user) {
+        const user = new User({
+          name: 'Max',
+          email: 'max@test.com',
+          cart: {
+            items: []
+          }
+        });
+        user.save();
+      }
+    });
+    app.listen(5000);
   })
-  .then((user) => {
-    if (!user) {
-      User.create({ name: "Max", email: "test@gmail.com" });
-    }
-    return user;
-  })
-  .then((user) => {
-    return user.createCart();
-    //app.listen(4000);
-  })
-  .then((cart) => {
-    app.listen(4000);
-  })
-  .catch((err) => {
+  .catch(err => {
     console.log(err);
   });
-
-// const hbs = require("express-handlebars");
-
-// res.status(404).sendFile(path.join(rootDir,'views','page-not-found.html'))
-
-// app.set('views', path.join(__dirname, 'views'));
-// app.set('view engine', 'hbs');
-// app.engine('hbs', hbs.engine({
-//   extname: 'hbs',
-//   defaultLayout: 'layouts',
-//   layoutsDir: __dirname + '/views/layouts/',
-//   partialsDir: __dirname + '/views/partials'
-// }))
-
-// app.set('view engine','pug');
-// app.set('views','views')
-// db.execute("SELECT * FROM products")
-//   .then((result) => {
-//     console.log(result[0])
-//   })
-//   .catch(err=>{
-//     console.log(err);
-//   });
